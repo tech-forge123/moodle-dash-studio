@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, ExternalLink, Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -31,17 +31,41 @@ export const ContentViewer = ({ open, onOpenChange, content }: ContentViewerProp
       return (
         <div className="flex flex-col items-center justify-center h-96 space-y-4">
           <p className="text-muted-foreground">Unable to display this content</p>
-          <Button asChild>
-            <a href={content.url} target="_blank" rel="noopener noreferrer">
-              <Download className="mr-2 h-4 w-4" />
-              Download File
-            </a>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild>
+              <a href={content.url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open in New Tab
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={content.url} download>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </a>
+            </Button>
+          </div>
         </div>
       );
     }
 
     const { mimetype, url } = content;
+
+    // For HTML/web pages (Moodle pages), Moodle blocks iframe embedding
+    // Open in new tab instead
+    if (mimetype === 'text/html') {
+      return (
+        <div className="flex flex-col items-center justify-center h-96 space-y-4">
+          <p className="text-muted-foreground">This content will open in a new tab</p>
+          <Button asChild size="lg">
+            <a href={url} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Open Moodle Page
+            </a>
+          </Button>
+        </div>
+      );
+    }
 
     // PDF files
     if (mimetype === 'application/pdf') {
@@ -122,7 +146,7 @@ export const ContentViewer = ({ open, onOpenChange, content }: ContentViewerProp
       );
     }
 
-    // Text files
+    // Text files - try to display, but might fail due to CORS
     if (mimetype.startsWith('text/') || mimetype === 'application/json') {
       return (
         <div className="relative w-full h-[70vh]">
@@ -137,6 +161,7 @@ export const ContentViewer = ({ open, onOpenChange, content }: ContentViewerProp
             onLoad={handleLoad}
             onError={handleError}
             title={content.filename}
+            sandbox="allow-same-origin"
           />
         </div>
       );
@@ -183,6 +208,9 @@ export const ContentViewer = ({ open, onOpenChange, content }: ContentViewerProp
               </Button>
             </div>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Content viewer for {content.filename}
+          </DialogDescription>
         </DialogHeader>
         {renderContent()}
       </DialogContent>
