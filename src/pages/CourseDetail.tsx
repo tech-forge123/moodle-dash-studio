@@ -6,10 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, FileText, Video, Link as LinkIcon, Eye, Image as ImageIcon, Music, ExternalLink } from "lucide-react";
+import { ArrowLeft, FileText, Video, Link as LinkIcon, Eye, Image as ImageIcon, Music } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ContentViewer } from "@/components/ContentViewer";
-import { LTILauncher } from "@/components/LTILauncher";
 
 interface Module {
   id: number;
@@ -25,7 +24,6 @@ interface ContentModule {
   url?: string;
   description?: string;
   pageContent?: string; // HTML content for mod_page
-  modplural?: string; // For LTI tools
   contents?: {
     filename: string;
     fileurl: string;
@@ -45,10 +43,6 @@ const CourseDetail = () => {
     mimetype: string;
     filesize?: number;
     htmlContent?: string; // For inline HTML rendering
-  } | null>(null);
-  const [ltiTool, setLtiTool] = useState<{
-    url: string;
-    name: string;
   } | null>(null);
   const { toast } = useToast();
 
@@ -114,52 +108,16 @@ const CourseDetail = () => {
   };
 
   const handleViewModuleUrl = (module: ContentModule) => {
-    // Priority 1: If module has file contents, they should be opened via viewer
-    if (module.contents && module.contents.length > 0) {
-      // Already handled by file click handlers below
-      return;
-    }
-    
-    // Priority 2: For mod_page with pageContent, use inline HTML viewer
+    // For mod_page with pageContent, use inline HTML viewer
     if (module.modname === 'page' && module.pageContent) {
       setViewerContent({
-        url: '',
+        url: '', // No URL needed, we have the content
         filename: module.name,
         mimetype: 'text/html',
         htmlContent: module.pageContent,
       });
-      return;
-    }
-    
-    // Priority 3: Check for LTI tools (modname === 'lti')
-    if (module.modname === 'lti' && module.url) {
-      // Try to launch LTI tool in embedded viewer
-      setLtiTool({
-        url: module.url,
-        name: module.name,
-      });
-      return;
-    }
-    
-    // Priority 4: Interactive activities - open in new window with breadcrumb
-    const interactiveActivities = ['quiz', 'assign', 'forum', 'scorm', 'h5pactivity'];
-    if (module.url && interactiveActivities.includes(module.modname)) {
-      // Store breadcrumb for return navigation
-      sessionStorage.setItem('moodle_return_course', courseId || '');
-      sessionStorage.setItem('moodle_return_course_name', 'Course Content');
-      
-      // Open in new window
-      window.open(module.url, '_blank', 'noopener,noreferrer');
-      
-      toast({
-        title: "Activity Opened",
-        description: "Complete the activity in the new window. You can return here anytime.",
-      });
-      return;
-    }
-    
-    // Priority 5: Other activities with URLs - open in new tab
-    if (module.url) {
+    } else if (module.url) {
+      // For other types with URLs, open in new tab (since Moodle blocks iframes)
       window.open(module.url, '_blank', 'noopener,noreferrer');
     }
   };
@@ -232,13 +190,9 @@ const CourseDetail = () => {
                             <div className="p-2 bg-primary/10 rounded-lg text-primary">
                               {getModuleIcon(module.modname)}
                             </div>
-                             <div className="flex-1">
+                            <div className="flex-1">
                               <CardTitle className="text-base">
-                                {module.contents && module.contents.length > 0 ? (
-                                  // Modules with files - let file clicks handle viewing
-                                  <span>{module.name}</span>
-                                ) : module.url ? (
-                                  // Modules with URLs - handle via click
+                                {module.url ? (
                                   <button
                                     onClick={() => handleViewModuleUrl(module)}
                                     className="hover:text-primary transition-colors text-left"
@@ -246,7 +200,6 @@ const CourseDetail = () => {
                                     {module.name}
                                   </button>
                                 ) : (
-                                  // Modules without actions
                                   module.name
                                 )}
                               </CardTitle>
@@ -303,14 +256,6 @@ const CourseDetail = () => {
         open={!!viewerContent}
         onOpenChange={(open) => !open && setViewerContent(null)}
         content={viewerContent}
-      />
-      
-      <LTILauncher
-        open={!!ltiTool}
-        onOpenChange={(open) => !open && setLtiTool(null)}
-        toolUrl={ltiTool?.url || ''}
-        toolName={ltiTool?.name || ''}
-        courseId={courseId || ''}
       />
     </div>
   );
