@@ -11,7 +11,6 @@ interface ContentViewerProps {
     filename: string;
     mimetype: string;
     filesize?: number;
-    htmlContent?: string; // For inline HTML rendering
   } | null;
 }
 
@@ -50,18 +49,10 @@ export const ContentViewer = ({ open, onOpenChange, content }: ContentViewerProp
       );
     }
 
-    const { mimetype, url, htmlContent } = content;
+    const { mimetype, url } = content;
 
-    // For HTML content that we fetched (mod_page), render it inline
-    if (mimetype === 'text/html' && htmlContent) {
-      return (
-        <div className="prose prose-sm max-w-none dark:prose-invert p-4 bg-background">
-          <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-        </div>
-      );
-    }
-
-    // For HTML/web pages without content (Moodle blocks iframe embedding)
+    // For HTML/web pages (Moodle pages), Moodle blocks iframe embedding
+    // Open in new tab instead
     if (mimetype === 'text/html') {
       return (
         <div className="flex flex-col items-center justify-center h-96 space-y-4">
@@ -205,20 +196,16 @@ export const ContentViewer = ({ open, onOpenChange, content }: ContentViewerProp
           <DialogTitle className="flex items-center justify-between">
             <span className="truncate pr-4">{content.filename}</span>
             <div className="flex gap-2 flex-shrink-0">
-              {content.url && (
-                <>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={content.url} download>
-                      <Download className="h-4 w-4" />
-                    </a>
-                  </Button>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={content.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
-                </>
-              )}
+              <Button variant="outline" size="sm" asChild>
+                <a href={content.url} download>
+                  <Download className="h-4 w-4" />
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a href={content.url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
             </div>
           </DialogTitle>
           <DialogDescription className="sr-only">

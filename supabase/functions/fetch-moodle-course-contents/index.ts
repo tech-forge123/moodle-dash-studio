@@ -5,41 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper to append token to Moodle file URLs
-const appendTokenToUrl = (url: string, token: string): string => {
-  if (!url) return url;
-  
-  // Only append token to Moodle webservice URLs
-  if (url.includes('/webservice/pluginfile.php') || url.includes('/pluginfile.php')) {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}token=${token}`;
-  }
-  
-  return url;
-};
-
-// Fetch mod_page HTML content
-const fetchPageContent = async (moodleUrl: string, token: string, courseId: number, pageId: number): Promise<string | null> => {
-  try {
-    const apiUrl = `${moodleUrl}/webservice/rest/server.php?wstoken=${token}&wsfunction=mod_page_get_pages_by_courses&courseids[0]=${courseId}&moodlewsrestformat=json`;
-    const response = await fetch(apiUrl);
-    
-    if (!response.ok) {
-      console.error('Failed to fetch page content:', response.status);
-      return null;
-    }
-    
-    const data = await response.json();
-    const pages = data.pages || [];
-    const page = pages.find((p: any) => p.coursemodule === pageId);
-    
-    return page?.content || null;
-  } catch (error) {
-    console.error('Error fetching page content:', error);
-    return null;
-  }
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -80,64 +45,11 @@ serve(async (req) => {
       );
     }
 
-    const rawContents = await response.json();
-    
-    // Check for Moodle API errors
-    if (rawContents.exception || rawContents.errorcode) {
-      console.error('Moodle API returned error:', rawContents);
-      return new Response(
-        JSON.stringify({ 
-          error: rawContents.message || 'Moodle API error',
-          errorcode: rawContents.errorcode 
-        }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    console.log(`Processing contents for course ${courseId}`);
-    
-    // Process contents: append tokens to file URLs and fetch mod_page content
-    const processedContents = await Promise.all(
-      rawContents.map(async (section: any) => {
-        const processedModules = await Promise.all(
-          (section.modules || []).map(async (module: any) => {
-            // Process file contents
-            const processedFiles = (module.contents || []).map((file: any) => ({
-              ...file,
-              fileurl: appendTokenToUrl(file.fileurl, MOODLE_TOKEN),
-            }));
-            
-            // For mod_page, fetch the HTML content
-            let pageContent = null;
-            if (module.modname === 'page') {
-              pageContent = await fetchPageContent(
-                MOODLE_URL,
-                MOODLE_TOKEN,
-                courseId,
-                module.id
-              );
-            }
-            
-            return {
-              ...module,
-              url: module.url ? appendTokenToUrl(module.url, MOODLE_TOKEN) : module.url,
-              contents: processedFiles,
-              pageContent, // Include fetched HTML for mod_page
-            };
-          })
-        );
-        
-        return {
-          ...section,
-          modules: processedModules,
-        };
-      })
-    );
-    
-    console.log(`Successfully processed contents for course ${courseId}`);
+    const contents = await response.json();
+    console.log(`Successfully fetched contents for course ${courseId}`);
 
     return new Response(
-      JSON.stringify({ contents: processedContents }),
+      JSON.stringify({ contents }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

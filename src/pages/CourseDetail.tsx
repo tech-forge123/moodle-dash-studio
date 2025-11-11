@@ -23,7 +23,6 @@ interface ContentModule {
   modname: string;
   url?: string;
   description?: string;
-  pageContent?: string; // HTML content for mod_page
   contents?: {
     filename: string;
     fileurl: string;
@@ -42,7 +41,6 @@ const CourseDetail = () => {
     filename: string;
     mimetype: string;
     filesize?: number;
-    htmlContent?: string; // For inline HTML rendering
   } | null>(null);
   const { toast } = useToast();
 
@@ -108,17 +106,12 @@ const CourseDetail = () => {
   };
 
   const handleViewModuleUrl = (module: ContentModule) => {
-    // For mod_page with pageContent, use inline HTML viewer
-    if (module.modname === 'page' && module.pageContent) {
+    if (module.url) {
       setViewerContent({
-        url: '', // No URL needed, we have the content
+        url: module.url,
         filename: module.name,
         mimetype: 'text/html',
-        htmlContent: module.pageContent,
       });
-    } else if (module.url) {
-      // For other types with URLs, open in new tab (since Moodle blocks iframes)
-      window.open(module.url, '_blank', 'noopener,noreferrer');
     }
   };
 
