@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Users, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import courseDefaultImage from "@/assets/course-default.jpg";
 
 export interface Course {
@@ -20,6 +21,8 @@ interface CourseCardProps {
 }
 
 export const CourseCard = ({ course }: CourseCardProps) => {
+  const navigate = useNavigate();
+
   return (
     <Card className="group overflow-hidden transition-all duration-300 hover:shadow-[var(--shadow-elegant)]">
       <div className="relative h-48 overflow-hidden">
@@ -59,7 +62,11 @@ export const CourseCard = ({ course }: CourseCardProps) => {
           )}
         </div>
         
-        <Button className="w-full" variant="default">
+        <Button 
+          className="w-full" 
+          variant="default"
+          onClick={() => navigate(`/course/${course.id}`)}
+        >
           View Course
         </Button>
       </CardContent>
