@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, FileText, Video, Link as LinkIcon, Download } from "lucide-react";
+import { ArrowLeft, FileText, Video, Link as LinkIcon, Eye, Image as ImageIcon, Music } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ContentViewer } from "@/components/ContentViewer";
 
 interface Module {
   id: number;
@@ -35,6 +36,12 @@ const CourseDetail = () => {
   const navigate = useNavigate();
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewerContent, setViewerContent] = useState<{
+    url: string;
+    filename: string;
+    mimetype: string;
+    filesize?: number;
+  } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -82,6 +89,28 @@ const CourseDetail = () => {
         return <FileText className="h-5 w-5" />;
       default:
         return <FileText className="h-5 w-5" />;
+    }
+  };
+
+  const getFileIcon = (mimetype: string) => {
+    if (mimetype.startsWith('image/')) return <ImageIcon className="h-4 w-4" />;
+    if (mimetype.startsWith('video/')) return <Video className="h-4 w-4" />;
+    if (mimetype.startsWith('audio/')) return <Music className="h-4 w-4" />;
+    if (mimetype === 'application/pdf') return <FileText className="h-4 w-4" />;
+    return <FileText className="h-4 w-4" />;
+  };
+
+  const handleViewContent = (url: string, filename: string, mimetype: string, filesize?: number) => {
+    setViewerContent({ url, filename, mimetype, filesize });
+  };
+
+  const handleViewModuleUrl = (module: ContentModule) => {
+    if (module.url) {
+      setViewerContent({
+        url: module.url,
+        filename: module.name,
+        mimetype: 'text/html',
+      });
     }
   };
 
@@ -156,14 +185,12 @@ const CourseDetail = () => {
                             <div className="flex-1">
                               <CardTitle className="text-base">
                                 {module.url ? (
-                                  <a 
-                                    href={module.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="hover:text-primary transition-colors"
+                                  <button
+                                    onClick={() => handleViewModuleUrl(module)}
+                                    className="hover:text-primary transition-colors text-left"
                                   >
                                     {module.name}
-                                  </a>
+                                  </button>
                                 ) : (
                                   module.name
                                 )}
@@ -183,19 +210,20 @@ const CourseDetail = () => {
                           <CardContent className="pt-0 pb-3">
                             <div className="space-y-2">
                               {module.contents.map((file, idx) => (
-                                <a
+                                <button
                                   key={idx}
-                                  href={file.fileurl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-colors text-sm"
+                                  onClick={() => handleViewContent(file.fileurl, file.filename, file.mimetype, file.filesize)}
+                                  className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-colors text-sm w-full text-left"
                                 >
-                                  <Download className="h-4 w-4 text-primary" />
-                                  <span className="flex-1">{file.filename}</span>
+                                  <div className="text-primary">
+                                    {getFileIcon(file.mimetype)}
+                                  </div>
+                                  <span className="flex-1 truncate">{file.filename}</span>
                                   <span className="text-xs text-muted-foreground">
                                     {formatFileSize(file.filesize)}
                                   </span>
-                                </a>
+                                  <Eye className="h-4 w-4 text-muted-foreground" />
+                                </button>
                               ))}
                             </div>
                           </CardContent>
@@ -215,6 +243,12 @@ const CourseDetail = () => {
           </Card>
         )}
       </section>
+
+      <ContentViewer
+        open={!!viewerContent}
+        onOpenChange={(open) => !open && setViewerContent(null)}
+        content={viewerContent}
+      />
     </div>
   );
 };
