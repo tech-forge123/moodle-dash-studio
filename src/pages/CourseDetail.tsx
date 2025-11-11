@@ -92,7 +92,8 @@ const CourseDetail = () => {
     }
   };
 
-  const getFileIcon = (mimetype: string) => {
+  const getFileIcon = (mimetype?: string) => {
+    if (!mimetype) return <FileText className="h-4 w-4" />;
     if (mimetype.startsWith('image/')) return <ImageIcon className="h-4 w-4" />;
     if (mimetype.startsWith('video/')) return <Video className="h-4 w-4" />;
     if (mimetype.startsWith('audio/')) return <Music className="h-4 w-4" />;
