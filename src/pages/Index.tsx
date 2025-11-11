@@ -4,6 +4,7 @@ import { CourseCard, Course } from "@/components/CourseCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { GraduationCap, RefreshCw } from "lucide-react";
 import heroImage from "@/assets/hero-learning.jpg";
 
@@ -15,47 +16,28 @@ const Index = () => {
   const fetchCourses = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual Moodle API call via edge function
-      // For now, showing sample data structure
-      const sampleCourses: Course[] = [
-        {
-          id: 1,
-          fullname: "Introduction to Web Development",
-          shortname: "WEB101",
-          summary: "Learn the fundamentals of web development including HTML, CSS, and JavaScript. Perfect for beginners looking to start their coding journey.",
-          categoryname: "Programming",
-          enrolledusercount: 234,
-          format: "topics"
-        },
-        {
-          id: 2,
-          fullname: "Advanced Database Systems",
-          shortname: "DB301",
-          summary: "Master advanced database concepts, query optimization, and database design patterns.",
-          categoryname: "Computer Science",
-          enrolledusercount: 156,
-          format: "weeks"
-        },
-        {
-          id: 3,
-          fullname: "Digital Marketing Fundamentals",
-          shortname: "MKT101",
-          summary: "Discover the essentials of digital marketing including SEO, social media marketing, and content strategy.",
-          categoryname: "Marketing",
-          enrolledusercount: 189,
-          format: "topics"
-        }
-      ];
+      const { data, error } = await supabase.functions.invoke('fetch-moodle-courses');
       
-      setCourses(sampleCourses);
+      if (error) {
+        console.error('Error fetching courses:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch courses from Moodle",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCourses(data.courses);
       toast({
-        title: "Courses loaded",
-        description: "Successfully fetched course data",
+        title: "Success",
+        description: `Loaded ${data.courses.length} courses from Moodle`,
       });
     } catch (error) {
+      console.error('Error:', error);
       toast({
         title: "Error",
-        description: "Failed to load courses. Please try again.",
+        description: "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {

@@ -1,1 +1,4 @@
 project_id = "hdpefxeevpxzofrmtrbz"
+
+[functions.fetch-moodle-courses]
+verify_jwt = false
