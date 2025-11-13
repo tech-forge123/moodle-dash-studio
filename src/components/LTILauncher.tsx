@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, ExternalLink } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface LTILauncherProps {
   open: boolean;
@@ -16,21 +18,92 @@ export const LTILauncher = ({ open, onOpenChange, toolUrl, toolName, courseId }:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
+  const [launchUrl, setLaunchUrl] = useState<string | null>(null);
+  const [sessionData, setSessionData] = useState<any>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
-      setLoading(true);
-      setError(null);
-      setIframeBlocked(false);
-      
-      // Simulate checking if iframe is allowed (in production, this would check X-Frame-Options)
-      const checkTimeout = setTimeout(() => {
-        setLoading(false);
-      }, 1000);
-
-      return () => clearTimeout(checkTimeout);
+      initiateLTILaunch();
     }
   }, [open, toolUrl]);
+
+  const initiateLTILaunch = async () => {
+    setLoading(true);
+    setError(null);
+    setIframeBlocked(false);
+
+    try {
+      // Step 1: Start OIDC login flow
+      console.log('Initiating LTI login...');
+      const { data: loginData, error: loginError } = await supabase.functions.invoke('lti-login');
+
+      if (loginError) {
+        throw new Error(`Login failed: ${loginError.message}`);
+      }
+
+      if (!loginData?.redirectUrl) {
+        throw new Error('No redirect URL received from login endpoint');
+      }
+
+      // Store session data for validation
+      setSessionData(loginData.sessionData);
+
+      // Step 2: Redirect to Moodle OIDC endpoint
+      console.log('Redirecting to Moodle OIDC...');
+      const redirectWindow = window.open(loginData.redirectUrl, '_blank', 'width=800,height=600');
+
+      if (!redirectWindow) {
+        throw new Error('Popup blocked. Please allow popups for this site.');
+      }
+
+      // Listen for the form_post callback
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.data?.type === 'lti-launch') {
+          console.log('Received LTI launch callback');
+          
+          // Step 3: Validate the id_token
+          const { data: launchData, error: launchError } = await supabase.functions.invoke('lti-launch', {
+            body: {
+              id_token: event.data.id_token,
+              state: event.data.state,
+              nonce: sessionData?.nonce,
+              sessionData,
+            },
+          });
+
+          if (launchError || !launchData?.success) {
+            throw new Error(launchData?.error || 'Launch validation failed');
+          }
+
+          console.log('LTI launch successful:', launchData);
+          setLaunchUrl(launchData.launchUrl);
+          setLoading(false);
+
+          toast({
+            title: "LTI Tool Launched",
+            description: "Successfully connected to the learning tool",
+          });
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      // Cleanup
+      return () => {
+        window.removeEventListener('message', handleMessage);
+      };
+    } catch (err) {
+      console.error('LTI launch error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to launch LTI tool');
+      setLoading(false);
+      toast({
+        title: "Launch Failed",
+        description: err instanceof Error ? err.message : 'Failed to launch LTI tool',
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleIframeError = () => {
     setLoading(false);
@@ -39,7 +112,11 @@ export const LTILauncher = ({ open, onOpenChange, toolUrl, toolName, courseId }:
   };
 
   const openInNewWindow = () => {
-    window.open(toolUrl, '_blank', 'noopener,noreferrer');
+    if (launchUrl) {
+      window.open(launchUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      window.open(toolUrl, '_blank', 'noopener,noreferrer');
+    }
     onOpenChange(false);
   };
 
@@ -63,14 +140,14 @@ export const LTILauncher = ({ open, onOpenChange, toolUrl, toolName, courseId }:
         {iframeBlocked ? (
           <div className="flex flex-col items-center justify-center h-96 space-y-4">
             <p className="text-muted-foreground text-center">
-              This tool requires opening in a separate window for security reasons.
+              This tool cannot be embedded. Opening in a new window instead.
             </p>
             <Button onClick={openInNewWindow} size="lg">
               <ExternalLink className="mr-2 h-4 w-4" />
               Open Tool
             </Button>
           </div>
-        ) : (
+        ) : launchUrl ? (
           <div className="relative w-full h-[70vh]">
             {loading && (
               <div className="absolute inset-0 flex items-center justify-center bg-background">
@@ -79,7 +156,7 @@ export const LTILauncher = ({ open, onOpenChange, toolUrl, toolName, courseId }:
             )}
             
             <iframe
-              src={toolUrl}
+              src={launchUrl}
               className="w-full h-full border-0"
               title={toolName}
               sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
@@ -88,11 +165,18 @@ export const LTILauncher = ({ open, onOpenChange, toolUrl, toolName, courseId }:
               referrerPolicy="no-referrer-when-downgrade"
             />
           </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-96 space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground text-center">
+              Authenticating with LTI provider...
+            </p>
+          </div>
         )}
 
         <div className="flex justify-between items-center pt-4 border-t">
           <p className="text-sm text-muted-foreground">
-            Note: LTI 1.3 deep authentication is not yet implemented
+            LTI 1.3 authenticated via OIDC
           </p>
           <Button variant="outline" onClick={openInNewWindow}>
             <ExternalLink className="mr-2 h-4 w-4" />
