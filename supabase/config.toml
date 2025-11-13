@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.fetch-moodle-course-contents]
 verify_jwt = false
+
+[functions.lti-login]
+verify_jwt = false
+
+[functions.lti-launch]
+verify_jwt = false
